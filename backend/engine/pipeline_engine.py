@@ -617,6 +617,258 @@ def _detect_cycles(blocks: dict, connections: dict) -> list[dict]:
     return errors
 
 
+@dataclass
+class SimulationResult:
+    """Result of a pipeline simulation."""
+    total_latency_ms: float = 0.0
+    total_cost: float = 0.0
+    throughput: float = 0.0
+    block_metrics: dict[str, dict] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    success: bool = True
+
+
+def simulate(graph: dict) -> SimulationResult:
+    """
+    Simulate a pipeline execution using fake services.
+    
+    Calls FakeKafka, FakeS3, FakeSparkJob, FakeSQL based on block types
+    and aggregates metrics.
+    
+    Args:
+        graph: Dictionary containing:
+            - blocks: dict[str, dict] - block_id -> block data with 'type' key
+            - connections: dict[str, list[str]] - adjacency list
+    
+    Returns:
+        SimulationResult with latency, cost, throughput, and per-block metrics
+    """
+    from backend.simulation.mock_kafka import FakeKafka
+    from backend.simulation.mock_s3 import FakeS3
+    from backend.simulation.mock_spark import FakeSpark, SparkOperation
+    from backend.simulation.mock_sql import FakeSQL
+    
+    blocks = graph.get('blocks', {})
+    connections = graph.get('connections', {})
+    
+    if not blocks:
+        return SimulationResult(
+            success=False,
+            warnings=['No blocks to simulate']
+        )
+    
+    # Initialize fake services
+    kafka = FakeKafka(topic="etl-pipeline", partitions=4, records_per_second=10000)
+    s3 = FakeS3(bucket="etl-data-bucket")
+    spark = FakeSpark(app_name="ETLSimulation", default_parallelism=200)
+    sql = FakeSQL()
+    sql.connect()
+    
+    # Map block types to simulation functions
+    block_type_to_service = {
+        # Ingestion blocks
+        'Database Reader': 'sql',
+        'CSV Reader': 's3',
+        'API Reader': 's3',
+        'Streaming Reader': 'kafka',
+        'Excel Reader': 's3',
+        'File System Reader': 's3',
+        # Storage blocks
+        'Database Writer': 'sql',
+        'CSV Writer': 's3',
+        'Data Lake Writer': 's3',
+        'Cache Writer': 'kafka',
+        'Excel Writer': 's3',
+        'File System Writer': 's3',
+        # Transform blocks
+        'Filter': 'spark',
+        'Join': 'spark',
+        'Aggregate': 'spark',
+        'Union': 'spark',
+        'Rename Columns': 'spark',
+        'Split': 'spark',
+        'Type Converter': 'spark',
+        'Data Cleaner': 'spark',
+        # Orchestration blocks
+        'Scheduler': 'orchestration',
+        'Loop': 'orchestration',
+        'Conditional': 'orchestration',
+        'Branch': 'orchestration',
+        'Trigger': 'orchestration',
+        'Parallel': 'orchestration',
+    }
+    
+    # Spark operation mapping
+    spark_op_map = {
+        'Filter': SparkOperation.FILTER,
+        'Join': SparkOperation.JOIN,
+        'Aggregate': SparkOperation.AGGREGATE,
+        'Union': SparkOperation.REDUCE,
+        'Rename Columns': SparkOperation.MAP,
+        'Split': SparkOperation.MAP,
+        'Type Converter': SparkOperation.MAP,
+        'Data Cleaner': SparkOperation.FILTER,
+    }
+    
+    # Simulate each block
+    total_latency_ms = 0.0
+    total_cost = 0.0
+    all_warnings: list[str] = []
+    block_metrics: dict[str, dict] = {}
+    
+    # Default simulation parameters
+    default_rows = 100000
+    default_data_size = 1024 * 1024  # 1MB
+    
+    # Get topological order for simulation (sources first)
+    execution_order = _get_execution_order(blocks, connections)
+    
+    for block_id in execution_order:
+        block = blocks[block_id]
+        block_type = block.get('type', 'Unknown')
+        service = block_type_to_service.get(block_type, 'orchestration')
+        
+        latency = 0.0
+        cost = 0.0
+        throughput = 0.0
+        warnings: list[str] = []
+        
+        if service == 'kafka':
+            # Simulate Kafka streaming
+            metrics = kafka.simulate_ingestion(n_seconds=1.0)
+            latency = metrics.latency_ms
+            cost = metrics.cost_units
+            throughput = metrics.throughput
+            warnings = metrics.warnings
+            
+        elif service == 's3':
+            # Simulate S3 read/write
+            if 'Reader' in block_type:
+                _, metrics = s3.get_object(f"data/{block_type.lower().replace(' ', '_')}.data")
+                # Simulate putting some data first for get to work
+                s3.put_object(f"data/{block_type.lower().replace(' ', '_')}.data", b"x" * default_data_size)
+                _, metrics = s3.get_object(f"data/{block_type.lower().replace(' ', '_')}.data")
+            else:
+                metrics = s3.put_object(
+                    f"output/{block_type.lower().replace(' ', '_')}.data",
+                    b"x" * default_data_size
+                )
+            latency = metrics.latency_ms
+            cost = metrics.cost_units
+            throughput = metrics.throughput
+            warnings = metrics.warnings
+            
+        elif service == 'spark':
+            # Simulate Spark transformation
+            operation = spark_op_map.get(block_type, SparkOperation.MAP)
+            metrics = spark.simulate_transformation(
+                operation=operation,
+                input_rows=default_rows
+            )
+            latency = metrics.latency_ms
+            cost = metrics.cost_units
+            throughput = metrics.throughput
+            warnings = metrics.warnings
+            
+        elif service == 'sql':
+            # Simulate SQL query
+            if 'Reader' in block_type:
+                # Create a test table and simulate read
+                sql.create_table("test_data", {"id": "INTEGER", "value": "TEXT"})
+                result = sql.execute("SELECT * FROM test_data LIMIT 1000")
+            else:
+                result = sql.execute("INSERT INTO test_data (id, value) VALUES (?, ?)", (1, "test"))
+            latency = result.metrics.latency_ms
+            cost = result.metrics.cost_units
+            throughput = result.metrics.throughput
+            warnings = result.metrics.warnings
+            
+        else:  # orchestration
+            # Minimal overhead for orchestration blocks
+            latency = 5.0  # 5ms overhead
+            cost = 0.001
+            throughput = 0.0
+            warnings = []
+        
+        # Store block metrics
+        block_metrics[block_id] = {
+            'type': block_type,
+            'latency_ms': latency,
+            'cost': cost,
+            'throughput': throughput,
+            'warnings': warnings
+        }
+        
+        # Aggregate totals
+        total_latency_ms += latency
+        total_cost += cost
+        all_warnings.extend([f"[{block_type}] {w}" for w in warnings])
+    
+    # Cleanup
+    sql.disconnect()
+    
+    # Calculate overall throughput (bottleneck is the slowest block)
+    if block_metrics:
+        min_throughput = min(
+            (m['throughput'] for m in block_metrics.values() if m['throughput'] > 0),
+            default=0.0
+        )
+    else:
+        min_throughput = 0.0
+    
+    return SimulationResult(
+        total_latency_ms=total_latency_ms,
+        total_cost=total_cost,
+        throughput=min_throughput,
+        block_metrics=block_metrics,
+        warnings=all_warnings,
+        success=True
+    )
+
+
+def _get_execution_order(blocks: dict, connections: dict) -> list[str]:
+    """
+    Get blocks in topological order for simulation.
+    
+    Args:
+        blocks: dict of block_id -> block data
+        connections: adjacency list
+    
+    Returns:
+        List of block IDs in execution order
+    """
+    # Find blocks with no incoming connections (sources)
+    has_incoming: set[str] = set()
+    for targets in connections.values():
+        has_incoming.update(targets)
+    
+    sources = [bid for bid in blocks if bid not in has_incoming]
+    
+    # BFS from sources
+    visited: set[str] = set()
+    order: list[str] = []
+    queue = sources.copy()
+    
+    while queue:
+        node_id = queue.pop(0)
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        order.append(node_id)
+        
+        # Add children to queue
+        for target in connections.get(node_id, []):
+            if target not in visited:
+                queue.append(target)
+    
+    # Add any remaining disconnected blocks
+    for block_id in blocks:
+        if block_id not in visited:
+            order.append(block_id)
+    
+    return order
+
+
 
 
 
