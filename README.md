@@ -229,19 +229,5 @@ Check out issues labeled `good-first-issue` or `help-wanted`. Or just play the g
 
 ---
 
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-- Inspired by countless hours lost to Factorio and Shapez
-- Built out of love (and mild frustration) for ETL pipelines
-- Thanks to everyone who's ever debugged a production pipeline at 2 AM
-
----
-
 *"Your data. Your pipelines. Your empire."*
 
