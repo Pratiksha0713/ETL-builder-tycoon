@@ -11,13 +11,20 @@ from typing import Any
 
 
 @dataclass
-class QueryMetrics:
+class SimulationMetrics:
+    """Standard metrics returned by all simulation classes."""
+    latency_ms: float = 0.0
+    cost_units: float = 0.0
+    throughput: float = 0.0
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class QueryMetrics(SimulationMetrics):
     """Metrics from a SQL query execution."""
     rows_affected: int = 0
     rows_returned: int = 0
     execution_time_ms: float = 0.0
-    query_latency_ms: float = 0.0
-    cost_units: float = 0.0
     operations_estimate: int = 0
 
 
@@ -101,6 +108,29 @@ class FakeSQL:
         """Calculate simulated query latency based on query length."""
         return self.BASE_LATENCY_MS + (len(query) * self.LATENCY_PER_CHAR)
     
+    def _generate_warnings(self, query: str, rows_returned: int) -> list[str]:
+        """Generate warnings based on query characteristics."""
+        warnings: list[str] = []
+        query_upper = query.upper()
+        
+        # Check for potential performance issues
+        if "SELECT *" in query_upper:
+            warnings.append("SELECT * may return unnecessary columns")
+        
+        if "WHERE" not in query_upper and query_upper.startswith("SELECT"):
+            warnings.append("Query has no WHERE clause - may return large result set")
+        
+        if rows_returned > 10000:
+            warnings.append(f"Large result set: {rows_returned} rows returned")
+        
+        if query_upper.count("JOIN") > 3:
+            warnings.append("Multiple JOINs detected - consider query optimization")
+        
+        if "LIKE '%" in query_upper:
+            warnings.append("Leading wildcard in LIKE may prevent index usage")
+        
+        return warnings
+    
     def execute(self, query: str, params: tuple[Any, ...] = ()) -> QueryResult:
         """
         Execute a SQL query.
@@ -110,16 +140,19 @@ class FakeSQL:
             params: Query parameters for parameterized queries.
             
         Returns:
-            QueryResult with data and metrics including latency and cost.
+            QueryResult with data and metrics including latency, cost, throughput, and warnings.
         """
         if not self._cursor or not self._connection:
             return QueryResult(
                 success=False,
-                error="Database not connected. Call connect() first."
+                error="Database not connected. Call connect() first.",
+                metrics=QueryMetrics(
+                    warnings=["Database connection not established"]
+                )
             )
         
         # Calculate simulated latency and cost
-        query_latency_ms = self._calculate_latency(query)
+        latency_ms = self._calculate_latency(query)
         operations_estimate = self._estimate_operations(query)
         cost_units = operations_estimate / 1000.0
         
@@ -138,12 +171,20 @@ class FakeSQL:
             end_time = time.perf_counter()
             execution_time_ms = (end_time - start_time) * 1000
             
+            # Calculate throughput (rows per second)
+            throughput = (len(rows_data) / execution_time_ms * 1000) if execution_time_ms > 0 else 0.0
+            
+            # Generate warnings
+            warnings = self._generate_warnings(query, len(rows_data))
+            
             metrics = QueryMetrics(
+                latency_ms=latency_ms,
+                cost_units=cost_units,
+                throughput=throughput,
+                warnings=warnings,
                 rows_affected=self._cursor.rowcount,
                 rows_returned=len(rows_data),
                 execution_time_ms=execution_time_ms,
-                query_latency_ms=query_latency_ms,
-                cost_units=cost_units,
                 operations_estimate=operations_estimate
             )
             
@@ -158,9 +199,11 @@ class FakeSQL:
             execution_time_ms = (end_time - start_time) * 1000
             
             metrics = QueryMetrics(
-                execution_time_ms=execution_time_ms,
-                query_latency_ms=query_latency_ms,
+                latency_ms=latency_ms,
                 cost_units=cost_units,
+                throughput=0.0,
+                warnings=[f"Query failed: {str(e)}"],
+                execution_time_ms=execution_time_ms,
                 operations_estimate=operations_estimate
             )
             
