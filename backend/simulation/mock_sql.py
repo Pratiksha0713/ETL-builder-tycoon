@@ -5,6 +5,7 @@ Mock SQL - Simulated SQL database for pipeline simulation.
 from __future__ import annotations
 
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -13,8 +14,20 @@ from typing import Any
 class QueryMetrics:
     """Metrics from a SQL query execution."""
     rows_affected: int = 0
-    execution_time_ms: float = 0.0
     rows_returned: int = 0
+    execution_time_ms: float = 0.0
+    query_latency_ms: float = 0.0
+    cost_units: float = 0.0
+    operations_estimate: int = 0
+
+
+@dataclass
+class QueryResult:
+    """Result of a SQL query execution."""
+    data: list[dict] = field(default_factory=list)
+    metrics: QueryMetrics = field(default_factory=QueryMetrics)
+    success: bool = True
+    error: str | None = None
 
 
 class FakeSQL:
@@ -24,6 +37,10 @@ class FakeSQL:
     Provides basic SQL functionality with an in-memory SQLite backend
     for testing pipelines without requiring an external database.
     """
+    
+    # Latency simulation constants
+    BASE_LATENCY_MS = 0.5  # Base latency per query
+    LATENCY_PER_CHAR = 0.01  # Additional latency per character in query
     
     def __init__(self, database: str = ":memory:") -> None:
         """
@@ -51,7 +68,40 @@ class FakeSQL:
             self._connection.close()
             self._connection = None
     
-    def execute(self, query: str, params: tuple[Any, ...] = ()) -> QueryMetrics:
+    def _estimate_operations(self, query: str) -> int:
+        """
+        Estimate the number of operations for a query.
+        
+        Uses query complexity heuristics based on keywords and length.
+        """
+        query_upper = query.upper()
+        
+        # Base operations from query length
+        operations = len(query)
+        
+        # Additional operations for complex keywords
+        if "JOIN" in query_upper:
+            operations += 500
+        if "GROUP BY" in query_upper:
+            operations += 300
+        if "ORDER BY" in query_upper:
+            operations += 200
+        if "HAVING" in query_upper:
+            operations += 150
+        if "DISTINCT" in query_upper:
+            operations += 100
+        if "UNION" in query_upper:
+            operations += 400
+        if "SUBQUERY" in query_upper or query_upper.count("SELECT") > 1:
+            operations += 600
+        
+        return operations
+    
+    def _calculate_latency(self, query: str) -> float:
+        """Calculate simulated query latency based on query length."""
+        return self.BASE_LATENCY_MS + (len(query) * self.LATENCY_PER_CHAR)
+    
+    def execute(self, query: str, params: tuple[Any, ...] = ()) -> QueryResult:
         """
         Execute a SQL query.
         
@@ -60,9 +110,65 @@ class FakeSQL:
             params: Query parameters for parameterized queries.
             
         Returns:
-            QueryMetrics with execution details.
+            QueryResult with data and metrics including latency and cost.
         """
-        pass
+        if not self._cursor or not self._connection:
+            return QueryResult(
+                success=False,
+                error="Database not connected. Call connect() first."
+            )
+        
+        # Calculate simulated latency and cost
+        query_latency_ms = self._calculate_latency(query)
+        operations_estimate = self._estimate_operations(query)
+        cost_units = operations_estimate / 1000.0
+        
+        start_time = time.perf_counter()
+        
+        try:
+            self._cursor.execute(query, params)
+            self._connection.commit()
+            
+            # Fetch results if it's a SELECT query
+            rows_data: list[dict] = []
+            if query.strip().upper().startswith("SELECT"):
+                rows = self._cursor.fetchall()
+                rows_data = [dict(row) for row in rows]
+            
+            end_time = time.perf_counter()
+            execution_time_ms = (end_time - start_time) * 1000
+            
+            metrics = QueryMetrics(
+                rows_affected=self._cursor.rowcount,
+                rows_returned=len(rows_data),
+                execution_time_ms=execution_time_ms,
+                query_latency_ms=query_latency_ms,
+                cost_units=cost_units,
+                operations_estimate=operations_estimate
+            )
+            
+            return QueryResult(
+                data=rows_data,
+                metrics=metrics,
+                success=True
+            )
+            
+        except sqlite3.Error as e:
+            end_time = time.perf_counter()
+            execution_time_ms = (end_time - start_time) * 1000
+            
+            metrics = QueryMetrics(
+                execution_time_ms=execution_time_ms,
+                query_latency_ms=query_latency_ms,
+                cost_units=cost_units,
+                operations_estimate=operations_estimate
+            )
+            
+            return QueryResult(
+                metrics=metrics,
+                success=False,
+                error=str(e)
+            )
     
     def fetch_all(self, query: str, params: tuple[Any, ...] = ()) -> list[dict]:
         """
@@ -75,7 +181,8 @@ class FakeSQL:
         Returns:
             List of rows as dictionaries.
         """
-        pass
+        result = self.execute(query, params)
+        return result.data if result.success else []
     
     def fetch_one(self, query: str, params: tuple[Any, ...] = ()) -> dict | None:
         """
@@ -88,7 +195,10 @@ class FakeSQL:
         Returns:
             Single row as dictionary, or None if no results.
         """
-        pass
+        result = self.execute(query, params)
+        if result.success and result.data:
+            return result.data[0]
+        return None
     
     def insert(self, table: str, data: dict[str, Any]) -> int:
         """
@@ -99,9 +209,17 @@ class FakeSQL:
             data: Column-value pairs to insert.
             
         Returns:
-            The rowid of the inserted row.
+            The rowid of the inserted row, or -1 on failure.
         """
-        pass
+        columns = ", ".join(data.keys())
+        placeholders = ", ".join("?" * len(data))
+        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        
+        result = self.execute(query, tuple(data.values()))
+        
+        if result.success and self._cursor:
+            return self._cursor.lastrowid or -1
+        return -1
     
     def bulk_insert(self, table: str, rows: list[dict[str, Any]]) -> int:
         """
@@ -114,7 +232,20 @@ class FakeSQL:
         Returns:
             Number of rows inserted.
         """
-        pass
+        if not rows:
+            return 0
+        
+        columns = ", ".join(rows[0].keys())
+        placeholders = ", ".join("?" * len(rows[0]))
+        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        
+        inserted = 0
+        for row in rows:
+            result = self.execute(query, tuple(row.values()))
+            if result.success:
+                inserted += 1
+        
+        return inserted
     
     def create_table(self, table: str, schema: dict[str, str]) -> None:
         """
@@ -124,7 +255,9 @@ class FakeSQL:
             table: The table name.
             schema: Column name to SQL type mapping.
         """
-        pass
+        columns = ", ".join(f"{col} {dtype}" for col, dtype in schema.items())
+        query = f"CREATE TABLE IF NOT EXISTS {table} ({columns})"
+        self.execute(query)
     
     def drop_table(self, table: str) -> None:
         """
@@ -133,7 +266,8 @@ class FakeSQL:
         Args:
             table: The table name.
         """
-        pass
+        query = f"DROP TABLE IF EXISTS {table}"
+        self.execute(query)
     
     def __enter__(self) -> FakeSQL:
         """Context manager entry."""
