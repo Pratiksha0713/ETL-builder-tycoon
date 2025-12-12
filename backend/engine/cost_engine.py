@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.engine.pipeline_engine import PipelineGraph
 
-
 class CostCategory(Enum):
     """Categories of pipeline costs."""
     COMPUTE = "compute"
@@ -22,7 +21,6 @@ class CostCategory(Enum):
     NETWORK = "network"
     LICENSING = "licensing"
     MAINTENANCE = "maintenance"
-
 
 @dataclass
 class CostBreakdown:
@@ -42,7 +40,6 @@ class CostBreakdown:
             + self.licensing_cost 
             + self.maintenance_cost
         )
-
 
 @dataclass
 class CostResult:
@@ -171,4 +168,5 @@ class CostEngine:
         """
         # TODO: Implement monthly projection logic
         raise NotImplementedError("CostEngine.project_monthly_cost() not yet implemented")
+
 
