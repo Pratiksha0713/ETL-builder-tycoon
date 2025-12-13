@@ -33,3 +33,4 @@ class FakeS3:
             "operation": "get_object",
             "found": data is not None
         }
+
