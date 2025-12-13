@@ -8,6 +8,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state
+if "page" not in st.session_state:
+    st.session_state.page = "home"
+
 # Sidebar navigation
 st.sidebar.title("ETL Builder Tycoon 🏭")
 st.sidebar.markdown("---")
@@ -27,8 +31,8 @@ if st.sidebar.button("🏆 Leaderboard", use_container_width=True):
 
 st.sidebar.markdown("---")
 
-# Main content area with routing placeholders
-current_page = st.session_state.get("page", "home")
+# Main content area with routing
+current_page = st.session_state.page
 
 if current_page == "home":
     st.title("Welcome to ETL Builder Tycoon!")
