@@ -56,31 +56,32 @@ def render_game():
         st.markdown("---")
 
         # Canvas placeholder
-        canvas_placeholder = st.empty()
-        with canvas_placeholder.container():
-            st.markdown("""
-            <div style="
-                border: 2px dashed #4CAF50;
-                border-radius: 10px;
-                padding: 40px;
-                text-align: center;
-                background-color: #f8f9fa;
-                min-height: 400px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-            ">
-                <h3 style="color: #4CAF50; margin-bottom: 20px;">🎯 Drag & Drop ETL Blocks Here</h3>
-                <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
-                    Build your data pipeline by dragging blocks from the library on the left
-                </p>
-                <div style="font-size: 48px;">📊 ➜ 🔄 ➜ 📤</div>
-                <p style="color: #888; margin-top: 20px;">
-                    Canvas implementation coming soon...
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+        with st.container():
+            canvas_placeholder = st.empty()
+            with canvas_placeholder.container():
+                st.markdown("""
+                <div style="
+                    border: 2px dashed #4CAF50;
+                    border-radius: 10px;
+                    padding: 40px;
+                    text-align: center;
+                    background-color: #f8f9fa;
+                    min-height: 400px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                ">
+                    <h3 style="color: #4CAF50; margin-bottom: 20px;">🎯 Drag & Drop ETL Blocks Here</h3>
+                    <p style="color: #666; font-size: 16px; margin-bottom: 20px;">
+                        Build your data pipeline by dragging blocks from the library on the left
+                    </p>
+                    <div style="font-size: 48px;">📊 ➜ 🔄 ➜ 📤</div>
+                    <p style="color: #888; margin-top: 20px;">
+                        Canvas implementation coming soon...
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
 
         # Pipeline controls
         st.markdown("---")
@@ -101,57 +102,59 @@ def render_game():
     # Right Column: Metrics Panel + Event Log
     with right_col:
         # Metrics Panel
-        st.markdown("### 📊 Metrics Panel")
-        st.markdown("---")
+        with st.container():
+            st.markdown("### 📊 Metrics Panel")
+            st.markdown("---")
 
-        # Key Metrics
-        metric_col1, metric_col2 = st.columns(2)
-        with metric_col1:
-            st.metric("💰 Budget", "$50,000", "+$2,500")
-            st.metric("👥 Team Size", "5", "+1")
-        with metric_col2:
-            st.metric("⚡ Throughput", "1.2M rows/s", "+15%")
-            st.metric("🎯 Success Rate", "98.5%", "+0.3%")
+            # Key Metrics
+            metric_col1, metric_col2 = st.columns(2)
+            with metric_col1:
+                st.metric("💰 Budget", "$50,000", "+$2,500")
+                st.metric("👥 Team Size", "5", "+1")
+            with metric_col2:
+                st.metric("⚡ Throughput", "1.2M rows/s", "+15%")
+                st.metric("🎯 Success Rate", "98.5%", "+0.3%")
 
-        st.markdown("---")
+            st.markdown("---")
 
-        # Performance Metrics
-        st.markdown("#### 🚀 Performance")
-        progress_bar = st.progress(0.75)
-        st.caption("Pipeline Efficiency: 75%")
+            # Performance Metrics
+            st.markdown("#### 🚀 Performance")
+            progress_bar = st.progress(0.75)
+            st.caption("Pipeline Efficiency: 75%")
 
-        st.markdown("#### 💡 Quality Score")
-        quality_bar = st.progress(0.92)
-        st.caption("Data Quality: 92%")
+            st.markdown("#### 💡 Quality Score")
+            quality_bar = st.progress(0.92)
+            st.caption("Data Quality: 92%")
 
         st.markdown("---")
 
         # Event Log
-        st.markdown("### 📋 Event Log")
-        st.markdown("---")
+        with st.container():
+            st.markdown("### 📋 Event Log")
+            st.markdown("---")
 
-        event_log = st.empty()
-        with event_log.container():
-            st.markdown("""
-            <div style="
-                background-color: #f8f9fa;
-                border-radius: 5px;
-                padding: 10px;
-                max-height: 300px;
-                overflow-y: auto;
-                font-family: monospace;
-                font-size: 12px;
-            ">
-                <div style="color: #28a745;">[10:30:15] ✓ Pipeline started successfully</div>
-                <div style="color: #007bff;">[10:30:16] ℹ Processing 1.2M records from database</div>
-                <div style="color: #ffc107;">[10:30:18] ⚠ High memory usage detected</div>
-                <div style="color: #28a745;">[10:30:20] ✓ Filter transformation completed</div>
-                <div style="color: #28a745;">[10:30:22] ✓ Join operation successful</div>
-                <div style="color: #007bff;">[10:30:25] ℹ Exporting to data warehouse</div>
-                <div style="color: #28a745;">[10:30:28] ✓ Pipeline completed in 13 seconds</div>
-                <div style="color: #28a745;">[10:30:28] 💰 Revenue: +$1,250</div>
-            </div>
-            """, unsafe_allow_html=True)
+            event_log = st.empty()
+            with event_log.container():
+                st.markdown("""
+                <div style="
+                    background-color: #f8f9fa;
+                    border-radius: 5px;
+                    padding: 10px;
+                    max-height: 300px;
+                    overflow-y: auto;
+                    font-family: monospace;
+                    font-size: 12px;
+                ">
+                    <div style="color: #28a745;">[10:30:15] ✓ Pipeline started successfully</div>
+                    <div style="color: #007bff;">[10:30:16] ℹ Processing 1.2M records from database</div>
+                    <div style="color: #ffc107;">[10:30:18] ⚠ High memory usage detected</div>
+                    <div style="color: #28a745;">[10:30:20] ✓ Filter transformation completed</div>
+                    <div style="color: #28a745;">[10:30:22] ✓ Join operation successful</div>
+                    <div style="color: #007bff;">[10:30:25] ℹ Exporting to data warehouse</div>
+                    <div style="color: #28a745;">[10:30:28] ✓ Pipeline completed in 13 seconds</div>
+                    <div style="color: #28a745;">[10:30:28] 💰 Revenue: +$1,250</div>
+                </div>
+                """, unsafe_allow_html=True)
 
         # Quick Actions
         st.markdown("---")
