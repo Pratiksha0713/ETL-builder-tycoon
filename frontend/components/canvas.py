@@ -89,7 +89,7 @@ class Canvas:
         return None
 
     def render(self):
-        """Render the canvas with blocks and connections."""
+        """Render the canvas with blocks and connections in a visual grid layout."""
         st.markdown("### 🖼️ Pipeline Canvas")
         st.markdown("---")
 
@@ -101,55 +101,27 @@ class Canvas:
             if not self.blocks:
                 st.info("🖼️ Canvas is empty. Add blocks from the library to start building your pipeline!")
             else:
-                # Show blocks in a grid layout for now (can be improved with drag-and-drop later)
-                cols = st.columns(3)
-                for i, (block_id, block) in enumerate(self.blocks.items()):
-                    col_idx = i % 3
-                    with cols[col_idx]:
-                        # Block container
-                        selected = self.selected_block_id == block_id
-                        border_color = "#007bff" if selected else "#dee2e6"
+                # Create visual grid representation
+                self._render_visual_grid()
 
-                        st.markdown(f"""
-                        <div style="
-                            border: 2px solid {border_color};
-                            border-radius: 8px;
-                            padding: 10px;
-                            margin: 5px 0;
-                            background-color: {'#f8f9ff' if selected else '#ffffff'};
-                            cursor: pointer;
-                        ">
-                            <strong>{block['type']}</strong><br>
-                            <small style="color: #6c757d;">ID: {block_id[:8]}...</small>
-                        </div>
-                        """, unsafe_allow_html=True)
+                # Control buttons below the grid
+                st.markdown("---")
+                col1, col2, col3 = st.columns(3)
 
-                        # Selection button
-                        if st.button(f"Select {block['type']}", key=f"select_{block_id}", use_container_width=True):
-                            self.select_block(block_id)
+                with col1:
+                    if st.button("🔄 Refresh Canvas", use_container_width=True):
+                        st.rerun()
 
-                        # Connection section (only show if a block is selected and it's not the current block)
-                        if self.selected_block_id and self.selected_block_id != block_id:
-                            if st.button(f"🔗 Connect from selected", key=f"connect_{block_id}", use_container_width=True):
-                                self.connect_block(self.selected_block_id, block_id)
+                with col2:
+                    if self.selected_block_id:
+                        if st.button("❌ Clear Selection", use_container_width=True):
+                            self.select_block(None)
+                            st.rerun()
 
-                # Display connections
-                if any(self.connections.values()):
-                    st.markdown("---")
-                    st.markdown("### 🔗 Pipeline Connections")
-
-                    for source_id, targets in self.connections.items():
-                        if targets:
-                            source_type = self.blocks[source_id]['type']
-                            st.markdown(f"**{source_type}** ({source_id[:8]}...) →")
-                            for target_id in targets:
-                                target_type = self.blocks[target_id]['type']
-                                st.markdown(f"  └─ **{target_type}** ({target_id[:8]}...)")
-
-                # Clear selection button
-                if self.selected_block_id:
-                    st.markdown("---")
-                    if st.button("❌ Clear Selection", use_container_width=True):
+                with col3:
+                    if st.button("🗑️ Clear All", use_container_width=True):
+                        self.blocks.clear()
+                        self.connections.clear()
                         self.select_block(None)
                         st.rerun()
 
@@ -157,3 +129,116 @@ class Canvas:
         st.session_state.canvas_blocks = self.blocks
         st.session_state.canvas_connections = self.connections
         st.session_state.selected_block_id = self.selected_block_id
+
+    def _render_visual_grid(self):
+        """Render blocks in a visual grid layout with connections."""
+        # Create a 4x4 grid (can be made dynamic later)
+        grid_size = 4
+        grid = [['   ' for _ in range(grid_size)] for _ in range(grid_size)]
+
+        # Block type abbreviations for display
+        type_abbr = {
+            'Database Reader': 'DB_R',
+            'CSV Reader': 'CSV_R',
+            'API Reader': 'API_R',
+            'Streaming Reader': 'STR_R',
+            'Excel Reader': 'XLS_R',
+            'File System Reader': 'FS_R',
+            'Database Writer': 'DB_W',
+            'CSV Writer': 'CSV_W',
+            'Data Lake Writer': 'DL_W',
+            'Cache Writer': 'CACHE',
+            'Excel Writer': 'XLS_W',
+            'File System Writer': 'FS_W',
+            'Filter': 'FLTR',
+            'Join': 'JOIN',
+            'Aggregate': 'AGG',
+            'Union': 'UNION',
+            'Rename Columns': 'RENAME',
+            'Split': 'SPLIT',
+            'Type Converter': 'CONV',
+            'Data Cleaner': 'CLEAN',
+            'Scheduler': 'SCHED',
+            'Loop': 'LOOP',
+            'Conditional': 'COND',
+            'Branch': 'BRANCH',
+            'Trigger': 'TRIG',
+            'Parallel': 'PARAL'
+        }
+
+        # Place blocks in grid positions
+        block_positions = {}
+        block_list = list(self.blocks.items())
+
+        for idx, (block_id, block) in enumerate(block_list):
+            row = idx // grid_size
+            col = idx % grid_size
+            if row < grid_size and col < grid_size:
+                abbr = type_abbr.get(block['type'], block['type'][:5])
+                selected = self.selected_block_id == block_id
+                if selected:
+                    grid[row][col] = f'[{abbr}]'
+                else:
+                    grid[row][col] = f' {abbr} '
+                block_positions[block_id] = (row, col)
+
+        # Draw connections
+        for source_id, targets in self.connections.items():
+            if source_id in block_positions and targets:
+                source_pos = block_positions[source_id]
+                for target_id in targets:
+                    if target_id in block_positions:
+                        target_pos = block_positions[target_id]
+                        self._draw_connection(grid, source_pos, target_pos)
+
+        # Render the grid
+        grid_lines = []
+        grid_lines.append("```")
+        grid_lines.append("┌───┬───┬───┬───┐")
+
+        for i, row in enumerate(grid):
+            row_str = "│" + "│".join(cell.center(3) for cell in row) + "│"
+            grid_lines.append(row_str)
+            if i < len(grid) - 1:
+                grid_lines.append("├───┼───┼───┼───┤")
+            else:
+                grid_lines.append("└───┴───┴───┴───┘")
+
+        grid_lines.append("```")
+        st.markdown("\n".join(grid_lines))
+
+        # Block interaction buttons
+        st.markdown("### 🎛️ Block Controls")
+        cols = st.columns(min(4, len(self.blocks)))
+        for i, (block_id, block) in enumerate(self.blocks.items()):
+            with cols[i % len(cols)]:
+                selected = self.selected_block_id == block_id
+                button_label = f"{'✓' if selected else ''} {block['type']}"
+                if st.button(button_label, key=f"select_{block_id}", use_container_width=True):
+                    self.select_block(block_id)
+
+                # Connection buttons (only show if a block is selected and it's not the current block)
+                if self.selected_block_id and self.selected_block_id != block_id:
+                    if st.button(f"🔗 Connect", key=f"connect_{block_id}", use_container_width=True):
+                        self.connect_block(self.selected_block_id, block_id)
+
+        # Connection details
+        if any(self.connections.values()):
+            st.markdown("### 🔗 Active Connections")
+            for source_id, targets in self.connections.items():
+                if targets:
+                    source_type = self.blocks[source_id]['type']
+                    st.markdown(f"**{source_type}** → {len(targets)} connection{'s' if len(targets) > 1 else ''}")
+
+    def _draw_connection(self, grid, source_pos, target_pos):
+        """Draw a connection line between two positions in the grid."""
+        source_row, source_col = source_pos
+        target_row, target_col = target_pos
+
+        # Simple connection: just mark target with arrow if it's right/down
+        if target_col > source_col:  # right connection
+            if grid[target_row][target_col].strip():
+                grid[target_row][target_col] = grid[target_row][target_col].replace(' ', '→')
+        elif target_row > source_row:  # down connection
+            if grid[target_row][target_col].strip():
+                grid[target_row][target_col] = grid[target_row][target_col].replace(' ', '↓')
