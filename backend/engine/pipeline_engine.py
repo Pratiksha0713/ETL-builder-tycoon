@@ -462,6 +462,164 @@ class PipelineEngine:
         return engine
 
 
+def validate(graph: dict) -> list[dict]:
+    """
+    Validate a pipeline graph from the canvas.
+    
+    Args:
+        graph: Dictionary containing:
+            - blocks: dict[str, dict] - block_id -> block data
+            - connections: dict[str, list[str]] - adjacency list (source_id -> [target_ids])
+    
+    Returns:
+        List of error/warning dictionaries with keys: type, message, block_id (optional)
+    """
+    errors: list[dict] = []
+    
+    blocks = graph.get('blocks', {})
+    connections = graph.get('connections', {})
+    
+    # Check 1: Empty pipeline
+    if not blocks:
+        errors.append({
+            'type': 'error',
+            'message': 'Pipeline is empty - add at least one block'
+        })
+        return errors
+    
+    # Check 2: Start block exists (blocks with no incoming connections)
+    has_incoming: set[str] = set()
+    for source_id, targets in connections.items():
+        for target_id in targets:
+            has_incoming.add(target_id)
+    
+    start_blocks = [bid for bid in blocks if bid not in has_incoming]
+    
+    if not start_blocks:
+        errors.append({
+            'type': 'error',
+            'message': 'No start block found - pipeline needs at least one block with no incoming connections'
+        })
+    
+    # Check 3: Invalid connections (reference non-existent blocks)
+    for source_id, targets in connections.items():
+        if source_id not in blocks:
+            errors.append({
+                'type': 'error',
+                'message': f'Connection from non-existent block: {source_id[:8]}...',
+                'block_id': source_id
+            })
+        for target_id in targets:
+            if target_id not in blocks:
+                errors.append({
+                    'type': 'error',
+                    'message': f'Connection to non-existent block: {target_id[:8]}...',
+                    'block_id': target_id
+                })
+    
+    # Check 4: Self-connections
+    for source_id, targets in connections.items():
+        if source_id in targets:
+            block_name = blocks.get(source_id, {}).get('type', 'Unknown')
+            errors.append({
+                'type': 'error',
+                'message': f'Block "{block_name}" cannot connect to itself',
+                'block_id': source_id
+            })
+    
+    # Check 5: Cycles detection using DFS
+    cycle_errors = _detect_cycles(blocks, connections)
+    errors.extend(cycle_errors)
+    
+    # Check 6: Orphan blocks (blocks not connected to anything)
+    if len(blocks) > 1:
+        connected_blocks: set[str] = set()
+        for source_id, targets in connections.items():
+            if targets:  # Only count if there are actual connections
+                connected_blocks.add(source_id)
+                connected_blocks.update(targets)
+        
+        for block_id, block in blocks.items():
+            if block_id not in connected_blocks:
+                errors.append({
+                    'type': 'warning',
+                    'message': f'Block "{block.get("type", "Unknown")}" is not connected to any other block',
+                    'block_id': block_id
+                })
+    
+    # Check 7: End block exists (blocks with no outgoing connections)
+    has_outgoing: set[str] = set()
+    for source_id, targets in connections.items():
+        if targets:
+            has_outgoing.add(source_id)
+    
+    end_blocks = [bid for bid in blocks if bid not in has_outgoing]
+    
+    if not end_blocks and len(blocks) > 1:
+        errors.append({
+            'type': 'warning',
+            'message': 'No end block found - pipeline should have at least one block with no outgoing connections'
+        })
+    
+    return errors
+
+
+def _detect_cycles(blocks: dict, connections: dict) -> list[dict]:
+    """
+    Detect cycles in the graph using DFS.
+    
+    Args:
+        blocks: dict of block_id -> block data
+        connections: adjacency list (source_id -> [target_ids])
+    
+    Returns:
+        List of cycle error dictionaries
+    """
+    errors: list[dict] = []
+    visited: set[str] = set()
+    rec_stack: set[str] = set()
+    cycle_path: list[str] = []
+    
+    def dfs(node_id: str) -> bool:
+        """Returns True if a cycle is detected."""
+        visited.add(node_id)
+        rec_stack.add(node_id)
+        cycle_path.append(node_id)
+        
+        for neighbor in connections.get(node_id, []):
+            if neighbor not in visited:
+                if dfs(neighbor):
+                    return True
+            elif neighbor in rec_stack:
+                # Found a cycle - build the cycle description
+                cycle_start_idx = cycle_path.index(neighbor)
+                cycle_nodes = cycle_path[cycle_start_idx:] + [neighbor]
+                cycle_names = [
+                    blocks.get(nid, {}).get('type', nid[:8]) 
+                    for nid in cycle_nodes
+                ]
+                errors.append({
+                    'type': 'error',
+                    'message': f'Cycle detected: {" → ".join(cycle_names)}',
+                    'block_id': neighbor
+                })
+                return True
+        
+        cycle_path.pop()
+        rec_stack.remove(node_id)
+        return False
+    
+    for block_id in blocks:
+        if block_id not in visited:
+            if dfs(block_id):
+                break  # Stop after finding first cycle
+    
+    return errors
+
+
+
+
+
 
 
 
