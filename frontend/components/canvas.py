@@ -65,6 +65,52 @@ class Canvas:
         st.success(f"Connected {self.blocks[source_id]['type']} to {self.blocks[target_id]['type']}")
         return True
 
+    def delete_block(self, block_id):
+        """Delete a block from the canvas and remove all its connections.
+
+        Args:
+            block_id (str): ID of the block to delete
+
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
+        if block_id not in self.blocks:
+            st.error("Block not found")
+            return False
+
+        block_type = self.blocks[block_id]['type']
+
+        # Remove the block
+        del self.blocks[block_id]
+
+        # Remove all connections involving this block
+        if block_id in self.connections:
+            del self.connections[block_id]
+
+        # Remove this block as a target from other blocks' connections
+        for source_id in self.connections:
+            if block_id in self.connections[source_id]:
+                self.connections[source_id].remove(block_id)
+
+        # Clear selection if the deleted block was selected
+        if self.selected_block_id == block_id:
+            self.select_block(None)
+
+        st.success(f"Deleted {block_type} block and all its connections")
+        return True
+
+    def reset_canvas(self):
+        """Reset the entire canvas, removing all blocks and connections.
+
+        Returns:
+            bool: True if reset was successful
+        """
+        self.blocks.clear()
+        self.connections.clear()
+        self.select_block(None)
+        st.success("Canvas reset - all blocks and connections cleared")
+        return True
+
     def select_block(self, block_id):
         """Select a block on the canvas.
 
@@ -106,7 +152,7 @@ class Canvas:
 
                 # Control buttons below the grid
                 st.markdown("---")
-                col1, col2, col3 = st.columns(3)
+                col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
                     if st.button("🔄 Refresh Canvas", use_container_width=True):
@@ -119,11 +165,13 @@ class Canvas:
                             st.rerun()
 
                 with col3:
-                    if st.button("🗑️ Clear All", use_container_width=True):
-                        self.blocks.clear()
-                        self.connections.clear()
-                        self.select_block(None)
+                    if st.button("🗑️ Reset Canvas", use_container_width=True):
+                        self.reset_canvas()
                         st.rerun()
+
+                with col4:
+                    if self.blocks and st.button("💾 Save Pipeline", use_container_width=True):
+                        st.info("Pipeline saving functionality coming soon!")
 
         # Update session state
         st.session_state.canvas_blocks = self.blocks
@@ -221,6 +269,11 @@ class Canvas:
                 if self.selected_block_id and self.selected_block_id != block_id:
                     if st.button(f"🔗 Connect", key=f"connect_{block_id}", use_container_width=True):
                         self.connect_block(self.selected_block_id, block_id)
+
+                # Delete button for each block
+                if st.button(f"🗑️ Delete", key=f"delete_{block_id}", use_container_width=True):
+                    self.delete_block(block_id)
+                    st.rerun()  # Refresh to update the grid
 
         # Connection details
         if any(self.connections.values()):
