@@ -4,9 +4,115 @@ from frontend.components.canvas import Canvas
 from backend.engine.pipeline_engine import validate, simulate
 
 
+def _generate_optimization_suggestions(result, blocks) -> list[dict]:
+    """Generate optimization suggestions based on simulation results."""
+    suggestions = []
+    
+    if not result or not result.success:
+        return suggestions
+    
+    # Find bottleneck (block with highest latency)
+    if result.block_metrics:
+        bottleneck = max(result.block_metrics.items(), key=lambda x: x[1]['latency_ms'])
+        bottleneck_type = bottleneck[1]['type']
+        bottleneck_latency = bottleneck[1]['latency_ms']
+        
+        if bottleneck_latency > 100:
+            suggestions.append({
+                'type': 'warning',
+                'title': '🔴 Remove bottleneck',
+                'description': f'"{bottleneck_type}" is slowing down your pipeline ({bottleneck_latency:.0f}ms). Consider optimizing or replacing it.',
+                'impact': 'High'
+            })
+    
+    # Check for partitioning opportunities
+    spark_blocks = [b for b in blocks.values() if b.get('type') in ['Join', 'Aggregate', 'Filter', 'Union']]
+    if len(spark_blocks) >= 2:
+        suggestions.append({
+            'type': 'info',
+            'title': '📊 Add partitioning',
+            'description': 'Multiple transform blocks detected. Add partitioning to improve parallel processing.',
+            'impact': 'Medium'
+        })
+    
+    # Check throughput
+    if result.throughput < 1000:
+        suggestions.append({
+            'type': 'warning',
+            'title': '⚡ Increase throughput',
+            'description': f'Current throughput ({result.throughput:.0f}/s) is low. Consider adding caching or parallel processing.',
+            'impact': 'High'
+        })
+    
+    # Check cost efficiency
+    if result.total_cost > 0.1:
+        suggestions.append({
+            'type': 'info',
+            'title': '💰 Reduce costs',
+            'description': f'Pipeline cost (${result.total_cost:.4f}) could be optimized. Consider batch processing.',
+            'impact': 'Medium'
+        })
+    
+    # Check for streaming opportunities
+    reader_blocks = [b for b in blocks.values() if 'Reader' in b.get('type', '')]
+    if len(reader_blocks) > 1:
+        suggestions.append({
+            'type': 'info',
+            'title': '🌊 Use streaming',
+            'description': 'Multiple data sources detected. Consider using Streaming Reader for real-time processing.',
+            'impact': 'Low'
+        })
+    
+    # Check for caching
+    if len(blocks) > 3 and not any('Cache' in b.get('type', '') for b in blocks.values()):
+        suggestions.append({
+            'type': 'info',
+            'title': '💾 Add caching',
+            'description': 'Pipeline has multiple blocks. Add Cache Writer to store intermediate results.',
+            'impact': 'Medium'
+        })
+    
+    return suggestions
+
+
 def render_game():
     """Render the main game page with ETL pipeline builder."""
     st.title("🎮 ETL Builder Tycoon - Game")
+
+    # Sidebar: Optimization Suggestions
+    with st.sidebar:
+        st.markdown("## 🔧 Optimization Suggestions")
+        st.markdown("---")
+        
+        if 'simulation_result' in st.session_state and st.session_state.simulation_result.success:
+            result = st.session_state.simulation_result
+            # Get blocks from session state
+            blocks = st.session_state.get('canvas_blocks', {})
+            suggestions = _generate_optimization_suggestions(result, blocks)
+            
+            if suggestions:
+                for i, suggestion in enumerate(suggestions):
+                    with st.expander(f"{suggestion['title']}", expanded=(i == 0)):
+                        st.write(suggestion['description'])
+                        
+                        impact_color = {'High': '🔴', 'Medium': '🟡', 'Low': '🟢'}
+                        st.caption(f"Impact: {impact_color.get(suggestion['impact'], '⚪')} {suggestion['impact']}")
+                        
+                        if st.button(f"Apply", key=f"apply_{i}", use_container_width=True):
+                            st.success(f"Applied: {suggestion['title']}")
+            else:
+                st.success("✓ Pipeline is well optimized!")
+        else:
+            st.info("Run simulation to see suggestions")
+        
+        st.markdown("---")
+        st.markdown("### 📈 Quick Tips")
+        st.markdown("""
+        - 🔄 **Partitioning**: Split large datasets
+        - ⚡ **Caching**: Store intermediate results  
+        - 🌊 **Streaming**: Process data in real-time
+        - 📦 **Batching**: Group operations together
+        """)
 
     # Create three-column layout
     left_col, center_col, right_col = st.columns([2, 4, 2])
@@ -138,7 +244,10 @@ def render_game():
         st.markdown("---")
         st.markdown("#### ⚡ Quick Actions")
         if st.button("🔧 Optimize Pipeline", use_container_width=True):
-            st.info("Optimization suggestions generated")
+            if 'simulation_result' in st.session_state:
+                st.info("💡 Check sidebar for optimization suggestions!")
+            else:
+                st.warning("Run simulation first to get suggestions")
         if st.button("🗑️ Clear Simulation", use_container_width=True):
             if 'simulation_result' in st.session_state:
                 del st.session_state.simulation_result
