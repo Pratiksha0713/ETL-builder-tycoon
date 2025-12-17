@@ -1,0 +1,7 @@
+# Level 3 - Advanced Level
+# Complex pipeline with strict performance requirements
+
+target_blocks: 8
+max_latency: 1500.0  # milliseconds (1.5 seconds)
+min_throughput: 2000.0  # records per second
+max_cost: 50.0  # cost units

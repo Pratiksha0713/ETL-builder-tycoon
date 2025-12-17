@@ -1,0 +1,7 @@
+# Level 2 - Intermediate Level
+# Moderate complexity with tighter constraints
+
+target_blocks: 5
+max_latency: 3000.0  # milliseconds (3 seconds)
+min_throughput: 500.0  # records per second
+max_cost: 25.0  # cost units
