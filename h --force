@@ -1,0 +1,5 @@
+[33m3c09b92[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Add standardized metric format across simulation modules
+[33m6db5d7b[m Implement skew detection and shuffle cost simulation in FakeSparkJob
+[33m5f93f39[m Add FakeSparkJob class skeleton for Spark simulation
+[33mb04d5f3[m Implement read and write latency simulation for FakeS3
+[33m2d753c5[m Create FakeS3 class with basic structure

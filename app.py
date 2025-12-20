@@ -1,5 +1,4 @@
 import streamlit as st
-from frontend.pages.home import render_home
 
 # Page configuration
 st.set_page_config(
@@ -36,7 +35,18 @@ st.sidebar.markdown("---")
 current_page = st.session_state.page
 
 if current_page == "home":
-    render_home()
+    st.title("Welcome to ETL Builder Tycoon!")
+    st.markdown("""
+    Build and manage the most efficient ETL pipelines in the industry!
+
+    ### Features:
+    - **Drag & Drop Pipeline Builder**: Create complex data workflows visually
+    - **Real-time Performance Metrics**: Monitor throughput, latency, and costs
+    - **Business Simulation**: Manage clients, budgets, and tech debt
+    - **Multiple Data Sources**: Handle APIs, databases, streaming data, and files
+
+    Choose an option from the sidebar to get started!
+    """)
 
 elif current_page == "game":
     st.title("🎮 Game")
