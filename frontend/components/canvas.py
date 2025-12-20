@@ -41,6 +41,12 @@ class Canvas:
             st.session_state.selected_node = None
         if "canvas_block_counter" not in st.session_state:
             st.session_state.canvas_block_counter = 0
+        if "connect_mode" not in st.session_state:
+            st.session_state.connect_mode = False
+        if "selected_block" not in st.session_state:
+            st.session_state.selected_block = None
+        if "delete_mode" not in st.session_state:
+            st.session_state.delete_mode = False
     
     def add_block(self, block_name: str, x: float = 100, y: float = 100) -> str:
         """
@@ -162,6 +168,45 @@ class Canvas:
         """
         st.session_state.selected_node = node_id
     
+    def handle_node_click(self, node_id: str) -> None:
+        """
+        Handle a node click based on the current mode.
+        
+        Args:
+            node_id: ID of the clicked node
+        """
+        if st.session_state.delete_mode:
+            # Delete mode: delete the clicked block
+            self.remove_block(node_id)
+            st.session_state.selected_node = None
+            st.rerun()
+        elif st.session_state.connect_mode:
+            # Connect mode: first click selects source, second click creates edge
+            if st.session_state.selected_block is None:
+                # First click: select source block
+                st.session_state.selected_block = node_id
+                st.session_state.selected_node = node_id
+                st.rerun()
+            else:
+                # Second click: create connection
+                source_id = st.session_state.selected_block
+                if source_id != node_id:
+                    if self.connect_blocks(source_id, node_id):
+                        st.session_state.selected_block = None
+                        st.session_state.selected_node = node_id
+                        st.rerun()
+                    else:
+                        st.session_state.selected_block = None
+                        st.session_state.selected_node = None
+                        st.rerun()
+                else:
+                    st.session_state.selected_block = None
+                    st.session_state.selected_node = None
+                    st.rerun()
+        else:
+            # Normal mode: select node for properties panel
+            self.select_node(node_id)
+    
     def get_graph(self) -> Dict:
         """
         Get the current graph structure.
@@ -189,6 +234,9 @@ class Canvas:
         st.session_state.edges = []
         st.session_state.selected_node = None
         st.session_state.canvas_block_counter = 0
+        st.session_state.connect_mode = False
+        st.session_state.selected_block = None
+        st.session_state.delete_mode = False
     
     def render(self) -> None:
         """
@@ -196,28 +244,68 @@ class Canvas:
         """
         st.markdown("### 🎨 Pipeline Canvas")
         
-        # Canvas controls
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
+        # Mode indicators and controls
+        mode_col1, mode_col2, mode_col3, mode_col4 = st.columns([1, 1, 1, 1])
+        with mode_col1:
+            if st.button("🔗 Connect Mode", use_container_width=True, 
+                        type="primary" if st.session_state.connect_mode else "secondary"):
+                st.session_state.connect_mode = not st.session_state.connect_mode
+                st.session_state.delete_mode = False
+                st.session_state.selected_block = None
+                st.rerun()
+        with mode_col2:
+            if st.button("🗑️ Delete Mode", use_container_width=True,
+                        type="primary" if st.session_state.delete_mode else "secondary"):
+                st.session_state.delete_mode = not st.session_state.delete_mode
+                st.session_state.connect_mode = False
+                st.session_state.selected_block = None
+                st.rerun()
+        with mode_col3:
             if st.button("🗑️ Clear Canvas", use_container_width=True):
                 self.clear()
                 st.rerun()
-        with col2:
+        with mode_col4:
             if st.button("💾 Save Pipeline", use_container_width=True):
                 graph = self.get_graph()
                 st.success(f"Saved pipeline with {len(graph['nodes'])} nodes and {len(graph['edges'])} connections")
+        
+        # Mode status display
+        if st.session_state.connect_mode:
+            if st.session_state.selected_block:
+                selected_name = next((n["name"] for n in st.session_state.nodes if n["id"] == st.session_state.selected_block), "Unknown")
+                st.info(f"🔗 Connect Mode Active: Source selected ({selected_name}). Click another block to connect.")
+            else:
+                st.info("🔗 Connect Mode Active: Click a block to select source, then click another to connect.")
+        elif st.session_state.delete_mode:
+            st.warning("🗑️ Delete Mode Active: Click any block to delete it.")
         
         # Render canvas using HTML/JavaScript for drag-and-drop
         self._render_canvas_html()
         
         # Properties panel for selected node
-        if st.session_state.selected_node:
+        if st.session_state.selected_node and not st.session_state.connect_mode:
             self._render_properties_panel()
     
     def _render_canvas_html(self) -> None:
         """Render the canvas using HTML and JavaScript for drag-and-drop."""
+        # Check for node clicks from query parameters
+        clicked_id = st.query_params.get("clicked_node", None)
+        mode = st.query_params.get("mode", None)
+        
+        if clicked_id and mode:
+            # Clear query params to prevent reprocessing
+            st.query_params.clear()
+            # Process the click
+            if mode == "delete" and st.session_state.delete_mode:
+                self.handle_node_click(clicked_id)
+            elif mode == "connect" and st.session_state.connect_mode:
+                self.handle_node_click(clicked_id)
+        
         nodes_json = json.dumps(st.session_state.nodes)
         edges_json = json.dumps(st.session_state.edges)
+        connect_mode = "true" if st.session_state.connect_mode else "false"
+        delete_mode = "true" if st.session_state.delete_mode else "false"
+        selected_block_id = st.session_state.selected_block or ""
         
         # Create a unique key for this component instance
         component_key = f"canvas_{len(st.session_state.nodes)}"
@@ -250,6 +338,7 @@ class Canvas:
                     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
                     z-index: 10;
                     user-select: none;
+                    transition: border 0.2s;
                 }}
                 .pipeline-node:hover {{
                     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
@@ -258,9 +347,25 @@ class Canvas:
                     border-width: 3px;
                     box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
                 }}
+                .pipeline-node.connect-source {{
+                    border: 3px solid #2196F3 !important;
+                    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.3);
+                }}
+                .pipeline-node.delete-target {{
+                    border: 3px solid #f44336 !important;
+                    animation: pulse-red 0.5s;
+                }}
+                @keyframes pulse-red {{
+                    0%, 100% {{ box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.3); }}
+                    50% {{ box-shadow: 0 0 0 6px rgba(244, 67, 54, 0.5); }}
+                }}
             </style>
         </head>
         <body>
+            <form id="node-click-form" method="get" style="display: none;">
+                <input type="hidden" name="clicked_node" id="clicked-node-input" value="">
+                <input type="hidden" name="mode" id="mode-input" value="">
+            </form>
             <div id="pipeline-canvas">
                 <svg id="edges-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></svg>
                 <div id="nodes-layer" style="position: relative; z-index: 2;"></div>
@@ -269,11 +374,15 @@ class Canvas:
             <script>
             const nodes = {nodes_json};
             const edges = {edges_json};
+            const connectMode = {connect_mode};
+            const deleteMode = {delete_mode};
+            const selectedBlockId = "{selected_block_id}";
             
             let selectedNodeId = null;
             let draggedNode = null;
             let offsetX = 0;
             let offsetY = 0;
+            let isDragging = false;
             
             function renderCanvas() {{
                 const canvas = document.getElementById('pipeline-canvas');
@@ -339,9 +448,20 @@ class Canvas:
                         </div>
                     `;
                     
+                    // Visual feedback for connect mode
+                    if (connectMode && selectedBlockId === node.id) {{
+                        nodeDiv.classList.add('connect-source');
+                    }}
+                    
                     // Make draggable
+                    let mouseDownTime = 0;
+                    let mouseDownPos = {{x: 0, y: 0}};
+                    
                     nodeDiv.addEventListener('mousedown', function(e) {{
                         e.preventDefault();
+                        isDragging = false;
+                        mouseDownTime = Date.now();
+                        mouseDownPos = {{x: e.clientX, y: e.clientY}};
                         draggedNode = node;
                         offsetX = e.clientX - node.x;
                         offsetY = e.clientY - node.y;
@@ -351,13 +471,34 @@ class Canvas:
                     
                     nodeDiv.addEventListener('click', function(e) {{
                         e.stopPropagation();
-                        selectedNodeId = node.id;
-                        renderCanvas();
-                        // Send selection to parent
-                        window.parent.postMessage({{
-                            type: 'node_selected',
-                            nodeId: node.id
-                        }}, '*');
+                        // Only process click if it wasn't a drag (mouse moved less than 5px)
+                        const timeDiff = Date.now() - mouseDownTime;
+                        const moved = Math.abs(e.clientX - mouseDownPos.x) > 5 || Math.abs(e.clientY - mouseDownPos.y) > 5;
+                        
+                        if (moved || timeDiff > 300) {{
+                            // Was a drag, not a click
+                            return;
+                        }}
+                        
+                        if (deleteMode) {{
+                            // Delete mode: send delete event via form
+                            nodeDiv.classList.add('delete-target');
+                            const form = document.getElementById('node-click-form');
+                            document.getElementById('clicked-node-input').value = node.id;
+                            document.getElementById('mode-input').value = 'delete';
+                            form.submit();
+                        }} else if (connectMode) {{
+                            // Connect mode: highlight and send click event via form
+                            nodeDiv.classList.add('connect-source');
+                            const form = document.getElementById('node-click-form');
+                            document.getElementById('clicked-node-input').value = node.id;
+                            document.getElementById('mode-input').value = 'connect';
+                            form.submit();
+                        }} else {{
+                            // Normal mode: select node (no form submission needed)
+                            selectedNodeId = node.id;
+                            renderCanvas();
+                        }}
                     }});
                     
                     nodesLayer.appendChild(nodeDiv);
@@ -379,8 +520,9 @@ class Canvas:
                     }}
                 }});
                 
-                document.addEventListener('mouseup', function() {{
+                document.addEventListener('mouseup', function(e) {{
                     if (draggedNode) {{
+                        isDragging = true;
                         // Send position update to parent
                         window.parent.postMessage({{
                             type: 'node_moved',
@@ -388,6 +530,12 @@ class Canvas:
                             x: draggedNode.x,
                             y: draggedNode.y
                         }}, '*');
+                        // Reset node opacity
+                        const nodeDiv = document.getElementById(draggedNode.id);
+                        if (nodeDiv) {{
+                            nodeDiv.style.opacity = '1';
+                            nodeDiv.style.cursor = 'move';
+                        }}
                         draggedNode = null;
                         document.body.style.cursor = 'default';
                     }}
