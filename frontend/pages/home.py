@@ -1,4 +1,9 @@
+"""
+Home Page Component - Enhanced home page with action buttons.
+"""
+
 import streamlit as st
+from frontend.utils.ui_helpers import create_action_button_group, render_section_divider
 
 
 def render_home():
@@ -31,25 +36,16 @@ def render_home():
     """)
 
     # Quick start section
-    st.markdown("---")
+    render_section_divider()
     st.markdown("### 🎯 Quick Start Options")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("🎮 Start Playing", use_container_width=True):
-            st.session_state.page = "game"
-        st.caption("⚡ Jump right into the action!")
-        st.markdown("Begin your ETL empire journey immediately.")
-
-    with col2:
-        if st.button("📚 Learn Basics", use_container_width=True):
-            st.session_state.page = "tutorial"
-        st.caption("🎓 Master the fundamentals")
-        st.markdown("Learn ETL concepts and game mechanics before playing.")
-
-    with col3:
-        if st.button("🏆 View Leaderboard", use_container_width=True):
-            st.session_state.page = "leaderboard"
-        st.caption("🌟 See who's on top")
-        st.markdown("Check out the highest-scoring data pipeline tycoons.")
+    quick_start_buttons = [
+        ("🎮 Start Playing", "game", "⚡ Jump right into the action!", 
+         "Begin your ETL empire journey immediately."),
+        ("📚 Learn Basics", "tutorial", "🎓 Master the fundamentals",
+         "Learn ETL concepts and game mechanics before playing."),
+        ("🏆 View Leaderboard", "leaderboard", "🌟 See who's on top",
+         "Check out the highest-scoring data pipeline tycoons."),
+    ]
+    
+    create_action_button_group(quick_start_buttons, num_columns=3)
