@@ -1,0 +1,28 @@
+name: "Level 2: Advanced Pipeline"
+description: "Build a more complex pipeline with API, S3, Spark, dbt, Airflow, and Power BI"
+difficulty: "Intermediate"
+
+target_blocks:
+  - "API Source"
+  - "S3 Storage"
+  - "Spark Transform"
+  - "dbt Model"
+  - "Airflow DAG"
+  - "Power BI Dashboard"
+
+constraints:
+  max_cost: 80
+  max_latency: 1500
+
+objectives:
+  - "Ingest data from API Source"
+  - "Store in S3 Storage"
+  - "Transform with Spark and dbt"
+  - "Orchestrate with Airflow DAG"
+  - "Visualize in Power BI Dashboard"
+  - "Keep total cost under 80 units"
+  - "Keep total latency under 1500ms"
+
+scoring:
+  base_score: 200
+  bonus_multiplier: 2.0

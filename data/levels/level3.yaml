@@ -1,0 +1,29 @@
+name: "Level 3: Enterprise Pipeline"
+description: "Build an enterprise-grade pipeline with Kafka, Delta Lake, Spark, SQL, Airflow, and Power BI"
+difficulty: "Advanced"
+
+target_blocks:
+  - "Kafka Source"
+  - "Delta Lake"
+  - "Spark Transform"
+  - "dbt Model"
+  - "Airflow DAG"
+  - "Power BI Dashboard"
+
+constraints:
+  max_cost: 120
+  max_latency: 1000
+
+objectives:
+  - "Stream data from Kafka Source"
+  - "Store in Delta Lake"
+  - "Process with Spark Transform"
+  - "Transform with dbt Model"
+  - "Orchestrate with Airflow DAG"
+  - "Visualize in Power BI Dashboard"
+  - "Keep total cost under 120 units"
+  - "Keep total latency under 1000ms"
+
+scoring:
+  base_score: 300
+  bonus_multiplier: 2.5

@@ -1,0 +1,24 @@
+name: "Level 1: Basic Pipeline"
+description: "Build a simple ETL pipeline with Kafka, S3, Spark, and Power BI"
+difficulty: "Beginner"
+
+target_blocks:
+  - "Kafka Source"
+  - "S3 Storage"
+  - "Spark Transform"
+  - "Power BI Dashboard"
+
+constraints:
+  max_cost: 50
+  max_latency: 2000
+
+objectives:
+  - "Connect Kafka Source to S3 Storage"
+  - "Process data with Spark Transform"
+  - "Visualize results in Power BI Dashboard"
+  - "Keep total cost under 50 units"
+  - "Keep total latency under 2000ms"
+
+scoring:
+  base_score: 100
+  bonus_multiplier: 1.5
