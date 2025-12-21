@@ -27,6 +27,76 @@ from backend.engine import (
 )
 
 
+def inject_css():
+    """Inject dark theme CSS into the page."""
+    css_path = Path(__file__).parent.parent / "static" / "styles.css"
+    if css_path.exists():
+        with open(css_path, 'r') as f:
+            css = f.read()
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
+def render_success_banner(message: str, animated: bool = True):
+    """
+    Render an animated success banner.
+    
+    Args:
+        message: Success message to display
+        animated: Whether to add glow animation
+    """
+    glow_class = " glow" if animated else ""
+    banner_html = f"""
+    <div class="success-banner{glow_class}">
+        {message}
+    </div>
+    """
+    st.markdown(banner_html, unsafe_allow_html=True)
+
+
+def render_warning_panel(warnings: list[str], title: str = "⚠️ Pipeline Warnings"):
+    """
+    Render a warning panel with list of warnings.
+    
+    Args:
+        warnings: List of warning messages
+        title: Panel title
+    """
+    if not warnings:
+        return
+    
+    warnings_html = "<ul>"
+    for warning in warnings:
+        warnings_html += f"<li>{warning}</li>"
+    warnings_html += "</ul>"
+    
+    panel_html = f"""
+    <div class="warning-panel">
+        <h4>{title}</h4>
+        {warnings_html}
+    </div>
+    """
+    st.markdown(panel_html, unsafe_allow_html=True)
+
+
+def reset_game():
+    """Reset the game by clearing canvas and session state."""
+    # Clear canvas state
+    if "nodes" in st.session_state:
+        st.session_state.nodes = []
+    if "edges" in st.session_state:
+        st.session_state.edges = []
+    if "selected_node" in st.session_state:
+        st.session_state.selected_node = None
+    if "canvas_block_counter" in st.session_state:
+        st.session_state.canvas_block_counter = 0
+    if "connect_mode" in st.session_state:
+        st.session_state.connect_mode = False
+    if "selected_block" in st.session_state:
+        st.session_state.selected_block = None
+    if "delete_mode" in st.session_state:
+        st.session_state.delete_mode = False
+
+
 def convert_canvas_to_pipeline_graph(canvas_graph: dict) -> PipelineGraph:
     """
     Convert canvas graph format to PipelineGraph format.
