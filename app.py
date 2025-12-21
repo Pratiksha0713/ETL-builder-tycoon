@@ -4,6 +4,7 @@ ETL Builder Tycoon - Main Application Entry Point
 
 import streamlit as st
 from frontend.utils.ui_helpers import render_navigation_sidebar, render_page_section, render_section_divider
+from frontend.pages.game import render_game
 
 # Page configuration
 st.set_page_config(
@@ -82,13 +83,17 @@ render_navigation_sidebar(NAVIGATION_ITEMS)
 
 # Main content area with routing
 current_page = st.session_state.page
-page_config = PAGE_CONTENT.get(current_page, PAGE_CONTENT["home"])
 
-render_page_section(
-    title=page_config["title"],
-    info_message=page_config["info"],
-    content=page_config["content"]
-)
+# Special handling for game page
+if current_page == "game":
+    render_game()
+else:
+    page_config = PAGE_CONTENT.get(current_page, PAGE_CONTENT["home"])
+    render_page_section(
+        title=page_config["title"],
+        info_message=page_config["info"],
+        content=page_config["content"]
+    )
 
 # Footer
 render_section_divider()

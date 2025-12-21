@@ -80,3 +80,4 @@ def render_block_library(canvas):
     for category_title, blocks in BLOCK_DEFINITIONS.items():
         render_block_category(canvas, category_title, blocks, num_columns=2)
         render_section_divider()
+

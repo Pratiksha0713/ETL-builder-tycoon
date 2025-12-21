@@ -307,83 +307,72 @@ class PipelineEngine:
                 # Kafka Source → simulate ingestion
                 if "kafka" in node_name or node_type == BlockType.INGESTION:
                     from backend.simulation.mock_kafka import FakeKafka
-                    kafka = FakeKafka(topic=f"topic_{node_id}", partitions=3, records_per_second=1000.0)
-                    kafka_metrics = kafka.simulate_ingestion(n_seconds=1.0)
+                    kafka = FakeKafka(partitions=3, events_per_second=1000.0, consumer_speed=1200.0)
+                    kafka_result = kafka.simulate_ingestion(seconds=1.0)
                     metrics = {
-                        "latency_ms": kafka_metrics.latency_ms,
-                        "cost_units": kafka_metrics.cost_units,
-                        "throughput": kafka_metrics.throughput,
-                        "warnings": kafka_metrics.warnings,
+                        "latency_ms": kafka_result["latency_ms"],
+                        "cost_units": kafka_result["cost_units"],
+                        "throughput": kafka_result["throughput"],
+                        "warnings": kafka_result["warnings"],
                     }
-                    latency_total += kafka_metrics.latency_ms
-                    cost_total += kafka_metrics.cost_units
-                    if kafka_metrics.throughput > 0:
-                        throughput_values.append(kafka_metrics.throughput)
+                    latency_total += kafka_result["latency_ms"]
+                    cost_total += kafka_result["cost_units"]
+                    if kafka_result["throughput"] > 0:
+                        throughput_values.append(kafka_result["throughput"])
                     quality_scores.append(0.95)  # High quality for ingestion
                 
                 # S3 Storage → simulate put/get operations
                 elif "s3" in node_name or "delta" in node_name or node_type == BlockType.STORAGE:
                     from backend.simulation.mock_s3 import FakeS3
                     s3 = FakeS3(bucket=f"bucket_{node_id}")
-                    # Simulate PUT operation
-                    test_data = b"test data" * 1000  # 9KB test data
-                    s3_metrics = s3.put_object(key=f"data_{node_id}.json", data=test_data)
+                    # Simulate PUT operation with 10 MB object
+                    s3_result = s3.put_object(size_mb=10.0)
                     metrics = {
-                        "latency_ms": s3_metrics.latency_ms,
-                        "cost_units": s3_metrics.cost_units,
-                        "throughput": s3_metrics.throughput,
-                        "warnings": s3_metrics.warnings,
-                        "bytes_transferred": s3_metrics.bytes_transferred,
+                        "latency_ms": s3_result["latency_ms"],
+                        "cost_units": s3_result["cost_units"],
+                        "throughput": s3_result["throughput"],
+                        "warnings": s3_result["warnings"],
                     }
-                    latency_total += s3_metrics.latency_ms
-                    cost_total += s3_metrics.cost_units
-                    if s3_metrics.throughput > 0:
-                        throughput_values.append(s3_metrics.throughput)
+                    latency_total += s3_result["latency_ms"]
+                    cost_total += s3_result["cost_units"]
+                    if s3_result["throughput"] > 0:
+                        throughput_values.append(s3_result["throughput"])
                     quality_scores.append(0.90)  # Good quality for storage
                 
                 # Spark Transform → simulate job execution
                 elif "spark" in node_name or node_type == BlockType.TRANSFORM:
-                    from backend.simulation.mock_spark import FakeSpark, SparkJob, SparkOperation
-                    spark = FakeSpark(app_name=f"app_{node_id}")
-                    spark_job = SparkJob(
-                        name=f"job_{node_id}",
-                        operations=[SparkOperation.MAP, SparkOperation.FILTER],
-                        input_rows=100000,
-                        partitions=200,
-                    )
-                    spark_metrics = spark.execute_job(spark_job)
+                    from backend.simulation.mock_spark import FakeSparkJob
+                    # Create job with 200 partitions, 1000 records per partition
+                    spark_job = FakeSparkJob(partitions=200, records_per_partition=None)
+                    spark_result = spark_job.run()
                     metrics = {
-                        "latency_ms": spark_metrics.latency_ms,
-                        "cost_units": spark_metrics.cost_units,
-                        "throughput": spark_metrics.throughput,
-                        "warnings": spark_metrics.warnings,
-                        "rows_processed": spark_metrics.rows_processed,
+                        "latency_ms": spark_result["latency_ms"],
+                        "cost_units": spark_result["cost_units"],
+                        "throughput": spark_result["throughput"],
+                        "warnings": spark_result["warnings"],
                     }
-                    latency_total += spark_metrics.latency_ms
-                    cost_total += spark_metrics.cost_units
-                    if spark_metrics.throughput > 0:
-                        throughput_values.append(spark_metrics.throughput)
+                    latency_total += spark_result["latency_ms"]
+                    cost_total += spark_result["cost_units"]
+                    if spark_result["throughput"] > 0:
+                        throughput_values.append(spark_result["throughput"])
                     quality_scores.append(0.85)  # Good quality for transforms
                 
                 # SQL/dbt → simulate query execution
                 elif "dbt" in node_name or "sql" in node_name or "database" in node_name:
                     from backend.simulation.mock_sql import FakeSQL
                     sql_db = FakeSQL(database=":memory:")
-                    sql_db.connect()
                     # Simulate a SELECT query
-                    query_result = sql_db.execute("SELECT 1 as test")
-                    sql_metrics = query_result.metrics
+                    sql_result = sql_db.execute("SELECT * FROM users WHERE id = 1")
                     metrics = {
-                        "latency_ms": sql_metrics.latency_ms,
-                        "cost_units": sql_metrics.cost_units,
-                        "throughput": sql_metrics.throughput,
-                        "warnings": sql_metrics.warnings,
-                        "rows_returned": sql_metrics.rows_returned,
+                        "latency_ms": sql_result["latency_ms"],
+                        "cost_units": sql_result["cost_units"],
+                        "throughput": sql_result["throughput"],
+                        "warnings": sql_result["warnings"],
                     }
-                    latency_total += sql_metrics.latency_ms
-                    cost_total += sql_metrics.cost_units
-                    if sql_metrics.throughput > 0:
-                        throughput_values.append(sql_metrics.throughput)
+                    latency_total += sql_result["latency_ms"]
+                    cost_total += sql_result["cost_units"]
+                    if sql_result["throughput"] > 0:
+                        throughput_values.append(sql_result["throughput"])
                     quality_scores.append(0.88)  # Good quality for SQL
                     sql_db.disconnect()
                 

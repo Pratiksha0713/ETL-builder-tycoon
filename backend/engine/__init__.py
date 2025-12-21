@@ -38,6 +38,11 @@ from backend.engine.throughput_engine import (
     ThroughputMetrics,
     ThroughputResult,
 )
+from backend.engine.scoring_engine import (
+    ScoringEngine,
+    ScoreBreakdown,
+    ScoringResult,
+)
 
 __all__ = [
     # Pipeline Engine
@@ -66,7 +71,12 @@ __all__ = [
     "ThroughputEngine",
     "ThroughputMetrics",
     "ThroughputResult",
+    # Scoring Engine
+    "ScoringEngine",
+    "ScoreBreakdown",
+    "ScoringResult",
 ]
+
 
 
 

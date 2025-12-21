@@ -176,14 +176,12 @@ def render_metrics_panel(
     st.metric("Total Cost", f"{cost_total:.2f} units")
     st.metric("Quality Score", f"{quality_score:.1%}")
     
-    # Show warnings if any
+    # Show warnings panel if any
     if all_warnings:
         st.markdown("---")
-        st.warning("⚠️ **Warnings:**")
-        for warning in all_warnings[:5]:  # Show first 5 warnings
-            st.markdown(f"- {warning}")
-        if len(all_warnings) > 5:
-            st.caption(f"... and {len(all_warnings) - 5} more warnings")
+        render_warning_panel(all_warnings[:10])  # Show first 10 warnings
+        if len(all_warnings) > 10:
+            st.caption(f"... and {len(all_warnings) - 10} more warnings")
     
     st.markdown("---")
     
@@ -209,12 +207,15 @@ def render_metrics_panel(
         st.write(f"**Quality Score:** {breakdown.quality_score:.1f}")
         st.write(f"**Cost Penalty:** -{breakdown.cost_penalty:.1f}")
     
-    # Display badges
+    # Display badges with custom styling
     if scoring_result.badges:
         st.markdown("---")
         st.markdown("#### 🏆 Badges Earned")
+        badges_html = '<div class="badge-container">'
         for badge in scoring_result.badges:
-            st.success(f"🏅 {badge}")
+            badges_html += f'<span class="badge">🏅 {badge}</span>'
+        badges_html += '</div>'
+        st.markdown(badges_html, unsafe_allow_html=True)
     
     # Check level completion
     if level_config:
@@ -231,7 +232,7 @@ def render_metrics_panel(
         if cost_ok and latency_ok and score_ok:
             st.markdown("---")
             st.balloons()
-            st.success("🎉 **Level Complete!** 🎉")
+            render_success_banner("🎉 Level Complete! 🎉", animated=True)
             st.markdown(f"**Score:** {scoring_result.final_score:.1f} (Target: {base_score})")
             st.markdown(f"**Cost:** {cost_total:.2f} / {max_cost} units ✅")
             st.markdown(f"**Latency:** {latency_total:.2f} / {max_latency} ms ✅")
@@ -268,13 +269,37 @@ def render_metrics_panel(
 
 def render_game():
     """Render the main game page."""
+    # Inject dark theme CSS
+    inject_css()
+    
     st.title("🎮 ETL Builder Tycoon - Game")
+    
+    # Reset Game button with custom styling
+    col_reset, col_spacer1, col_level1, col_level2, col_level3 = st.columns([1, 0.5, 1, 1, 1])
+    with col_reset:
+        reset_button_html = """
+        <style>
+        .reset-game-btn {
+            background-color: #ff6b6b !important;
+            color: white !important;
+            border: none !important;
+            font-weight: bold !important;
+        }
+        .reset-game-btn:hover {
+            background-color: #ff5252 !important;
+            transform: scale(1.05);
+        }
+        </style>
+        """
+        st.markdown(reset_button_html, unsafe_allow_html=True)
+        if st.button("🔄 Reset Game", use_container_width=True, type="secondary", key="reset_game"):
+            reset_game()
+            st.rerun()
     
     # Level selection
     if "current_level" not in st.session_state:
         st.session_state.current_level = 1
     
-    col_level1, col_level2, col_level3, col_spacer = st.columns([1, 1, 1, 2])
     with col_level1:
         if st.button("Level 1", use_container_width=True):
             st.session_state.current_level = 1
@@ -341,12 +366,10 @@ def render_game():
         pipeline_engine = PipelineEngine()
         validation_errors = pipeline_engine.validate(pipeline_graph)
         
-        # Show validation errors below canvas
+        # Show validation errors below canvas - use warning panel
         if validation_errors:
             st.markdown("---")
-            st.error("**Pipeline Validation Errors:**")
-            for error in validation_errors:
-                st.error(f"❌ {error}")
+            render_warning_panel(validation_errors, "❌ Pipeline Validation Errors")
         else:
             st.markdown("---")
             st.success("✅ Pipeline is valid!")

@@ -672,3 +672,4 @@ Badges are displayed with:
 
 *Master the scoring system to climb the leaderboards and earn prestigious badges! 🏆*
 
+

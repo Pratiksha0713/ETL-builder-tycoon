@@ -127,3 +127,4 @@ def create_action_button_group(
 def render_section_divider() -> None:
     """Render a standard section divider."""
     st.markdown("---")
+
