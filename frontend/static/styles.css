@@ -1,0 +1,233 @@
+/* Dark Theme CSS for ETL Builder Tycoon */
+
+:root {
+    --bg-primary: #0e1117;
+    --bg-secondary: #1e2130;
+    --bg-tertiary: #262938;
+    --text-primary: #fafafa;
+    --text-secondary: #b8bcc8;
+    --accent-primary: #00d4ff;
+    --accent-secondary: #ff6b6b;
+    --accent-success: #51cf66;
+    --accent-warning: #ffd43b;
+    --accent-error: #ff6b6b;
+    --border-color: #3d4050;
+    --shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* Main app styling */
+.stApp {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+}
+
+[data-testid="stSidebar"] .stButton > button {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: var(--bg-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Metric cards */
+[data-testid="stMetricValue"] {
+    color: var(--accent-primary);
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary);
+}
+
+/* Success banner animation */
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes glow {
+    0%, 100% {
+        box-shadow: 0 0 10px var(--accent-success);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--accent-success), 0 0 30px var(--accent-success);
+    }
+}
+
+.success-banner {
+    animation: slideDown 0.5s ease-out, pulse 2s ease-in-out infinite;
+    background: linear-gradient(135deg, var(--accent-success), #40c057);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    font-size: 24px;
+    box-shadow: 0 4px 15px var(--shadow);
+}
+
+.success-banner.glow {
+    animation: slideDown 0.5s ease-out, glow 2s ease-in-out infinite;
+}
+
+/* Warning panel */
+.warning-panel {
+    background-color: rgba(255, 212, 59, 0.1);
+    border-left: 4px solid var(--accent-warning);
+    border-radius: 5px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.warning-panel h4 {
+    color: var(--accent-warning);
+    margin-top: 0;
+}
+
+.warning-panel ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.warning-panel li {
+    color: var(--text-secondary);
+    margin: 5px 0;
+}
+
+/* Error styling */
+.stAlert[data-baseweb="alert"] {
+    background-color: rgba(255, 107, 107, 0.1);
+    border-color: var(--accent-error);
+    color: var(--text-primary);
+}
+
+/* Info boxes */
+.stInfo {
+    background-color: rgba(0, 212, 255, 0.1);
+    border-color: var(--accent-primary);
+}
+
+/* Buttons */
+.stButton > button {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.stButton > button:hover {
+    background-color: var(--bg-primary);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px var(--shadow);
+}
+
+/* Level buttons - enhanced styling */
+.stButton > button {
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+/* Enhanced button hover effects */
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* Badge styling */
+.badge-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.badge {
+    background: linear-gradient(135deg, var(--accent-primary), #0099cc);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px var(--shadow);
+    animation: slideDown 0.3s ease-out;
+}
+
+/* Level progress bars */
+.progress-container {
+    background-color: var(--bg-tertiary);
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.progress-bar {
+    height: 8px;
+    background-color: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 5px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-success), #40c057);
+    transition: width 0.3s ease;
+}
+
+/* Canvas styling */
+.pipeline-canvas {
+    background-color: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+}
+
+/* Markdown text */
+.stMarkdown {
+    color: var(--text-primary);
+}
+
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+    color: var(--text-primary);
+}
+
+.stMarkdown code {
+    background-color: var(--bg-tertiary);
+    color: var(--accent-primary);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Expander styling */
+.streamlit-expanderHeader {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.streamlit-expanderContent {
+    background-color: var(--bg-tertiary);
+}
