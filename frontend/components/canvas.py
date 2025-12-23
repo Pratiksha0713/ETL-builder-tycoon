@@ -551,8 +551,7 @@ class Canvas:
         # Use Streamlit's HTML component
         result = st.components.v1.html(
             canvas_html,
-            height=620,
-            key=component_key
+            height=620
         )
         
         # Handle messages from the HTML component (if supported)

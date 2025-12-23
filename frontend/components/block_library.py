@@ -81,3 +81,4 @@ def render_block_library(canvas):
         render_block_category(canvas, category_title, blocks, num_columns=2)
         render_section_divider()
 
+

@@ -1,28 +1,26 @@
-name: "Level 2: Advanced Pipeline"
-description: "Build a more complex pipeline with API, S3, Spark, dbt, Airflow, and Power BI"
+name: "Level 2: Advanced Transformations"
+description: "Build a complex ETL pipeline with multiple data sources and transformations"
 difficulty: "Intermediate"
 
 target_blocks:
+  - "Kafka Source"
   - "API Source"
   - "S3 Storage"
   - "Spark Transform"
   - "dbt Model"
-  - "Airflow DAG"
   - "Power BI Dashboard"
 
 constraints:
-  max_cost: 80
-  max_latency: 1500
+  max_cost: 75
+  max_latency: 3000
 
 objectives:
-  - "Ingest data from API Source"
-  - "Store in S3 Storage"
-  - "Transform with Spark and dbt"
-  - "Orchestrate with Airflow DAG"
-  - "Visualize in Power BI Dashboard"
-  - "Keep total cost under 80 units"
-  - "Keep total latency under 1500ms"
+  - "Connect multiple data sources (Kafka + API)"
+  - "Implement data cleansing and transformation pipeline"
+  - "Use dbt for data modeling and quality checks"
+  - "Optimize for both cost and performance"
+  - "Keep total cost under 75 units and latency under 3000ms"
 
 scoring:
-  base_score: 200
-  bonus_multiplier: 2.0
+  base_score: 150
+  bonus_multiplier: 1.8
