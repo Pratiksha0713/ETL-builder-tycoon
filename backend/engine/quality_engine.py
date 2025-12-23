@@ -85,15 +85,58 @@ class QualityEngine:
     def calculate(self, graph: PipelineGraph) -> QualityResult:
         """
         Calculate quality metrics for the given pipeline graph.
-        
+
         Args:
             graph: The normalized pipeline graph to analyze.
-            
+
         Returns:
             QualityResult with computed quality metrics.
         """
-        # TODO: Implement quality calculation logic
-        raise NotImplementedError("QualityEngine.calculate() not yet implemented")
+        node_scores = {}
+        all_metrics = {}
+
+        # Calculate quality for each node
+        for node_id, node in graph.nodes.items():
+            node_quality = self._calculate_node_quality(node, graph)
+            node_scores[node_id] = node_quality["overall"]
+
+            # Aggregate metrics across nodes
+            for metric_name, score in node_quality["metrics"].items():
+                if metric_name not in all_metrics:
+                    all_metrics[metric_name] = []
+                all_metrics[metric_name].append(score)
+
+        # Calculate overall metrics
+        overall_scores = []
+        metric_scores = {}
+
+        for metric_name, scores in all_metrics.items():
+            avg_score = sum(scores) / len(scores)
+            metric_type = getattr(QualityMetricType, metric_name.upper(), QualityMetricType.COMPLETENESS)
+            metric_scores[metric_name] = QualityScore(
+                metric_type=metric_type,
+                score=avg_score,
+                details=f"Average {metric_name} score across {len(scores)} nodes"
+            )
+            overall_scores.append(avg_score)
+
+        # Calculate weighted overall score
+        overall_score = sum(
+            score * self._metric_weights[metric.metric_type]
+            for metric in metric_scores.values()
+        ) / sum(self._metric_weights.values())
+
+        quality_grade = self.compute_grade(overall_score)
+
+        return QualityResult(
+            overall_score=overall_score,
+            node_scores=node_scores,
+            metric_scores=metric_scores,
+            error_rate=self._calculate_error_rate(graph),
+            data_loss_rate=self._calculate_data_loss_rate(graph),
+            schema_violations=self._count_schema_violations(graph),
+            quality_grade=quality_grade
+        )
     
     def simulate_error_propagation(
         self, 
@@ -162,6 +205,78 @@ class QualityEngine:
         """
         # TODO: Implement weak point identification
         raise NotImplementedError("QualityEngine.identify_weak_points() not yet implemented")
+
+    def _calculate_node_quality(self, node, graph) -> dict:
+        """Calculate quality metrics for a single node."""
+        from backend.engine.pipeline_engine import BlockType
+
+        base_quality = {
+            "completeness": 0.95,
+            "accuracy": 0.90,
+            "consistency": 0.85,
+            "timeliness": 0.88,
+            "validity": 0.92,
+            "uniqueness": 0.94,
+        }
+
+        # Adjust quality based on block type
+        if node.block_type == BlockType.INGESTION:
+            # Ingestion typically has high completeness but may have timeliness issues
+            base_quality["timeliness"] = 0.75
+        elif node.block_type == BlockType.TRANSFORM:
+            # Transforms can introduce errors but improve data quality
+            base_quality["accuracy"] = 0.85
+            base_quality["validity"] = 0.80
+        elif node.block_type == BlockType.STORAGE:
+            # Storage typically maintains quality well
+            base_quality["completeness"] = 0.98
+            base_quality["consistency"] = 0.95
+
+        # Calculate overall score as weighted average
+        overall = sum(
+            score * self._metric_weights[QualityMetricType(metric_name.upper())]
+            for metric_name, score in base_quality.items()
+        ) / sum(self._metric_weights.values())
+
+        return {
+            "overall": overall,
+            "metrics": base_quality
+        }
+
+    def _calculate_error_rate(self, graph) -> float:
+        """Calculate overall error rate for the pipeline."""
+        # Simulate error rate based on pipeline complexity
+        base_error_rate = 0.01  # 1% base error rate
+        complexity_penalty = len(graph.nodes) * 0.005  # 0.5% per node
+        connection_penalty = len(graph.edges) * 0.002  # 0.2% per connection
+
+        return min(0.1, base_error_rate + complexity_penalty + connection_penalty)
+
+    def _calculate_data_loss_rate(self, graph) -> float:
+        """Calculate data loss rate for the pipeline."""
+        # Data loss is rare but increases with complexity
+        base_loss_rate = 0.001  # 0.1% base loss rate
+        transform_penalty = sum(1 for node in graph.nodes.values()
+                               if node.block_type.name == "TRANSFORM") * 0.002
+
+        return min(0.05, base_loss_rate + transform_penalty)
+
+    def _count_schema_violations(self, graph) -> int:
+        """Count potential schema violations in the pipeline."""
+        violations = 0
+
+        # Check for incompatible connections
+        for edge in graph.edges:
+            source_node = graph.nodes.get(edge.source_id)
+            target_node = graph.nodes.get(edge.target_id)
+
+            if source_node and target_node:
+                # Simple heuristic: different block types may have schema mismatches
+                if source_node.block_type != target_node.block_type:
+                    violations += 1
+
+        return violations
+
 
 
 

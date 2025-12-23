@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from backend.engine.pipeline_engine import PipelineGraph
+    from backend.engine.pipeline_engine import PipelineGraph, BlockType
 
 
 @dataclass
@@ -68,15 +68,47 @@ class ThroughputEngine:
     def calculate(self, graph: PipelineGraph) -> ThroughputResult:
         """
         Calculate throughput metrics for the given pipeline graph.
-        
+
         Args:
             graph: The normalized pipeline graph to analyze.
-            
+
         Returns:
             ThroughputResult with computed throughput metrics.
         """
-        # TODO: Implement throughput calculation logic
-        raise NotImplementedError("ThroughputEngine.calculate() not yet implemented")
+        node_metrics = {}
+        bottlenecks = []
+
+        # Calculate throughput for each node
+        for node_id, node in graph.nodes.items():
+            metrics = self._calculate_node_throughput(node, graph)
+            node_metrics[node_id] = metrics
+
+            if metrics.is_bottleneck:
+                bottlenecks.append(node_id)
+
+        # Find overall bottleneck
+        bottleneck_node_id = bottlenecks[0] if bottlenecks else None
+
+        # Calculate overall pipeline throughput (limited by bottleneck)
+        if bottleneck_node_id:
+            bottleneck_throughput = node_metrics[bottleneck_node_id].records_per_second
+            overall_rps = bottleneck_throughput
+        else:
+            # If no bottleneck, use minimum throughput
+            overall_rps = min((m.records_per_second for m in node_metrics.values()), default=0.0)
+
+        overall_bps = overall_rps * self._default_record_size_bytes
+        efficiency = overall_rps / self._parallelism_factor if self._parallelism_factor > 0 else 0.0
+
+        return ThroughputResult(
+            overall_throughput_rps=overall_rps,
+            overall_throughput_bps=overall_bps,
+            node_metrics=node_metrics,
+            bottleneck_node_id=bottleneck_node_id,
+            max_theoretical_throughput=self._parallelism_factor * 1000.0,  # Base theoretical
+            efficiency=min(efficiency, 1.0),
+            saturation_point_rps=overall_rps * 0.9  # 90% of current throughput
+        )
     
     def simulate(
         self, 
@@ -161,6 +193,45 @@ class ThroughputEngine:
         """
         # TODO: Implement parallelism analysis
         raise NotImplementedError("ThroughputEngine.analyze_parallelism() not yet implemented")
+
+    def _calculate_node_throughput(self, node, graph) -> ThroughputMetrics:
+        """Calculate throughput metrics for a single node."""
+        base_throughput = self._get_base_throughput(node.block_type)
+
+        # Adjust for parallelism
+        throughput_rps = base_throughput * self._parallelism_factor
+
+        # Calculate utilization (simulate some load)
+        utilization = min(0.8, throughput_rps / (base_throughput * 2.0))  # Assume 80% max utilization
+
+        # Calculate queue depth based on incoming connections
+        incoming_connections = [edge for edge in graph.edges if edge.target_id == node.node_id]
+        queue_depth = len(incoming_connections) * 10  # Simulate queue buildup
+
+        # Determine if this is a bottleneck (high utilization)
+        is_bottleneck = utilization > 0.7
+
+        return ThroughputMetrics(
+            records_per_second=throughput_rps,
+            bytes_per_second=throughput_rps * self._default_record_size_bytes,
+            utilization=utilization,
+            queue_depth=queue_depth,
+            is_bottleneck=is_bottleneck
+        )
+
+    def _get_base_throughput(self, block_type) -> float:
+        """Get base throughput for different block types."""
+        from backend.engine.pipeline_engine import BlockType
+
+        base_rates = {
+            BlockType.INGESTION: 1000.0,    # Kafka-like ingestion
+            BlockType.STORAGE: 500.0,       # S3-like storage
+            BlockType.TRANSFORM: 200.0,     # Spark-like transform
+            BlockType.ORCHESTRATION: 10000.0 # Orchestration (minimal bottleneck)
+        }
+
+        return base_rates.get(block_type, 100.0)
+
 
 
 

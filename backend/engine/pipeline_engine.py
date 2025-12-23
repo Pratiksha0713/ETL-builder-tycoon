@@ -450,5 +450,12 @@ class PipelineEngine:
             results["throughput"] = throughput_engine.calculate(normalized_graph)
         except (NotImplementedError, Exception):
             pass
+
+        try:
+            from backend.engine.latency_engine import LatencyEngine
+            latency_engine = LatencyEngine()
+            results["latency"] = latency_engine.calculate(normalized_graph)
+        except (NotImplementedError, Exception):
+            pass
         
         return results
